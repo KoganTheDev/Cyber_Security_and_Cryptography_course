@@ -11,19 +11,43 @@ Key space values: The key K is a mXm matrix whose elements are integers in {0, 2
 
 import math
 
-
+EXIT_COMMANDS = ("exit", "quit")
 PAD_CHAR = '$' # Visible padding character used in ciphertext
 PAD_NUM = ord('x') - ord('a') # When padding '$' defualts to the same value as if it was 'x'
 
+# Global width used for separators and centered titles
+SEPARATOR_WIDTH = 50
+
+MIN_STRING_LENGTH = 4
+MAX_STRING_LENGTH = 10
+
 
 def _print_separator(char='='):
-    """Print a separator line for formatting."""
-    print(char * 50)
+    """Print a separator line for formatting using module width."""
+    print(char * SEPARATOR_WIDTH)
 
 
 def _print_label_value(label, value):
     """Print a label-value pair with consistent formatting."""
     print(f"{label:35}{value}")
+
+
+def _print_title(title, width=SEPARATOR_WIDTH, sep_char='='):
+    """Print a centered title with separator lines.
+
+    The title is centered inside a line of length `width`. Surrounding lines
+    composed of `sep_char` are printed above and below the title to match
+    the existing visual style.
+    """
+    print(sep_char * width)
+    print(title.center(width))
+    print(sep_char * width)
+
+
+def _print_matrix(label, matrix):
+    """Print a label and a 2x2 matrix in the established style."""
+    print(label)
+    print_2x2_matrix(matrix)
 
 
 def is_key_valid(key, N=26):
@@ -157,6 +181,25 @@ def int_to_string(integer_array, pad_char=PAD_CHAR, remove_padding=False):
     if remove_padding and len(result) > 0:
         return result[:-1]
     return result
+
+
+def validate_input_string(s):
+    """Validate input string against the plane space descriptor (letters a..z).
+
+    - Input must be a non-empty string containing at least one alphabetic character.
+    - Non-letter characters are ignored by the cipher, but we still require at least
+      one alphabet character to proceed.
+
+    Returns the cleaned lowercase string if valid, or None if invalid.
+    """
+    if not isinstance(s, str):
+        return None
+    
+    if not (MIN_STRING_LENGTH <= len(s) and len(s) <= MAX_STRING_LENGTH):
+        return None
+    
+    cleaned = ''.join(ch.lower() for ch in s if ch.isalpha())
+    return cleaned if len(cleaned) > 0 else None
 
 
 def matrix_multiply(A, B):
@@ -305,6 +348,22 @@ def NameCipher_decryption(ciphertext, decryption_key, second_decryption_key, a, 
     plaintext = int_to_string(x_ints, pad_char=PAD_CHAR, remove_padding=False)
     return plaintext[:-1] if has_padding and len(plaintext) > 0 else plaintext
 
+def _print_mapping(plaintext, ciphertext):
+    """Print a mapping between plaintext letters and ciphertext letters.
+
+    Returns 0 on success, -1 if lengths mismatch.
+    """
+    if len(plaintext) != len(ciphertext):
+        print(f"The length of the cipher and plaintext is not the same.\nThe plaintext: {plaintext}\nThe ciphertext: {ciphertext}")
+        return -1
+
+    print()
+    print("Mapping plaintext to ciphertext")
+    for char_plain, char_cipher in zip(plaintext, ciphertext):
+        print(f"{char_plain} => {char_cipher}")
+    print()
+
+
 # Exercise 2 - Iterative attack
 def iterative_attack(plaintext, initial_cipher, first_encryption_key, second_encryption_key, a, b, N=26):
     """Perform iterative attack on ciphertext by repeatedly encrypting it.
@@ -328,16 +387,25 @@ def iterative_attack(plaintext, initial_cipher, first_encryption_key, second_enc
     iterative_attack_iterations = 0
     slice_for_odd_length = len(initial_cipher) - 2
     # Remove padding marker to get the actual text to encrypt
-    cipher_after_iterative_attack = initial_cipher[:slice_for_odd_length] if initial_cipher.endswith(PAD_CHAR) else initial_cipher
+    initial_cipher_no_marking = initial_cipher[:slice_for_odd_length] if initial_cipher.endswith(PAD_CHAR) else initial_cipher
+    cipher_after_iterative_attack = initial_cipher_no_marking
     
-    while (plaintext != cipher_after_iterative_attack):
+    while (True):
+        # Keep the previous cipher so it can be used later to print the correlation between the letters
+        prev_cipher = cipher_after_iterative_attack
+        
         iterative_attack_iterations += 1
         cipher_after_iterative_attack = NameCipher_encryption(cipher_after_iterative_attack, first_encryption_key, second_encryption_key, a, b, N)
         # For an Odd cipher, remove the padding marker to continue iterating
         cipher_after_iterative_attack = cipher_after_iterative_attack[:slice_for_odd_length] if cipher_after_iterative_attack.endswith(PAD_CHAR) else cipher_after_iterative_attack
+        
+        # Found the plaintext from the cipher        
+        if (initial_cipher_no_marking == cipher_after_iterative_attack):
+            _print_mapping(prev_cipher, initial_cipher_no_marking)
+            break
     
     _print_separator()
-    _print_label_value("Plaintext:", plaintext)
+    _print_label_value("\nPlaintext:", plaintext)
     _print_label_value("Initial cipher", initial_cipher)
     print("First encryption key:")
     print_2x2_matrix(first_encryption_key)
@@ -345,6 +413,8 @@ def iterative_attack(plaintext, initial_cipher, first_encryption_key, second_enc
     print_2x2_matrix(second_encryption_key)
     _print_label_value("Cipher after iterative attack:", cipher_after_iterative_attack)
     _print_label_value("Iterations:", iterative_attack_iterations) 
+    print()
+    _print_separator()
     
 def print_2x2_matrix(matrix):
     """Print a 2x2 matrix in formatted style with validation.
@@ -380,9 +450,7 @@ def main():
     a = 17
     b = 24
 
-    plaintext_1 = "roni"
-    plaintext_2 = "yuval"
-    
+
     # Encryption keys
     first_encryption_key = [[17, 14], [0, 3]]
     second_encryption_key = [[5, 14], [14, 17]]
@@ -396,64 +464,48 @@ def main():
     decryption_key = inverse_2x2_matrix(first_encryption_key, N)
     second_decryption_key = inverse_2x2_matrix(second_encryption_key, N)
 
-    # Encryption
-    cipher = NameCipher_encryption(plaintext_1, first_encryption_key, second_encryption_key, a, b, N)
-    cipher_2 = NameCipher_encryption(plaintext_2, first_encryption_key, second_encryption_key, a, b, N)
+    while (True):
+        plaintext = input("\nInsert plaintext, alphabetic characters only\nexit or quit to exit\n")
+        plaintext = validate_input_string(plaintext) # Returns a lower case string without any letters that are non-alphabetic letters
+        
+        # Validate input
+        if (plaintext == None):
+            print("Please insert a string with only letters from the English alphabet... [a-z] [A-Z]\n")
+            continue # Skip to the next iteration so another input is get inserted instead of the current one
+        
+        # Finish runtime due to user input
+        if (plaintext.lower() in EXIT_COMMANDS):
+            print("Finishing Execution...")
+            break
     
-    print()
-    _print_separator()
-    print("ENCRYPTION")
-    _print_separator()
-    _print_label_value("Plaintext 1:", plaintext_1)
-    print("First encryption key:")
-    print_2x2_matrix(first_encryption_key)
-    print("Second encryption key:")
-    print_2x2_matrix(second_encryption_key)
-    _print_label_value("Ciphertext 1:", cipher)
-    print("-" * 50)
-    _print_label_value("Plaintext 2:", plaintext_2)
-    print("First encryption key:")
-    print_2x2_matrix(first_encryption_key)
-    print("Second encryption key:")
-    print_2x2_matrix(second_encryption_key)
-    _print_label_value("Ciphertext 2:", cipher_2)
-    _print_separator()
+        # Encryption
+        cipher = NameCipher_encryption(plaintext, first_encryption_key, second_encryption_key, a, b, N)
+        
+        _print_title("ENCRYPTION")
+        _print_label_value("\nPlaintext:", plaintext)
+        print("First encryption key:")
+        print_2x2_matrix(first_encryption_key)
+        print("Second encryption key:")
+        print_2x2_matrix(second_encryption_key)
+        _print_label_value("Ciphertext:", cipher)
 
-    # Decryption
-    decrypted = NameCipher_decryption(cipher, decryption_key, second_decryption_key, a, b, N)
-    decrypted_2 = NameCipher_decryption(cipher_2, decryption_key, second_decryption_key, a, b, N)
-
-    print()
-    _print_separator()
-    print("DECRYPTION")
-    _print_separator()
-    _print_label_value("Ciphertext 1:", cipher)
-    print("First decryption key:")
-    print_2x2_matrix(decryption_key)
-    print("Second decryption key:")
-    print_2x2_matrix(second_decryption_key)
-    _print_label_value("Decrypted 1:", decrypted)
-    _print_label_value("Match:", "YES" if decrypted == plaintext_1 else "NO")
-    print("-" * 50)
-    _print_label_value("Ciphertext 2:", cipher_2)
-    print("First decryption key:")
-    print_2x2_matrix(decryption_key)
-    print("Second decryption key:")
-    print_2x2_matrix(second_decryption_key)
-    _print_label_value("Decrypted 2:", decrypted_2)
-    _print_label_value("Match:", "YES" if decrypted_2 == plaintext_2 else "NO")
-    _print_separator()
-
-    # 2nd exercise: Iterative Attack
-    print()
-    _print_separator()
-    print("ITERATIVE ATTACK")
-    _print_separator()
-    iterative_attack(plaintext_1, cipher, first_encryption_key, second_encryption_key, a, b, N)
-    print()
-    iterative_attack(plaintext_2, cipher_2, first_encryption_key, second_encryption_key, a, b, N)    
-
-
+        # Decryption
+        decrypted = NameCipher_decryption(cipher, decryption_key, second_decryption_key, a, b, N)
+        
+        _print_title("DECRYPTION")
+        _print_label_value("\nCiphertext:", cipher)
+        print("First decryption key:")
+        print_2x2_matrix(decryption_key)
+        print("Second decryption key:")
+        print_2x2_matrix(second_decryption_key)
+        _print_label_value("Decrypted:", decrypted)
+        _print_label_value("Match:", "YES" if decrypted == plaintext else "NO")
+        
+         # 2nd exercise: Iterative Attack
+        _print_title("ITERATIVE ATTACK")
+        iterative_attack(plaintext, cipher, first_encryption_key, second_encryption_key, a, b, N)
+        print()
+        
 
 if __name__ == "__main__":
     main()
