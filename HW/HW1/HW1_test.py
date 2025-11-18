@@ -8,6 +8,8 @@ if TEST_DIR not in sys.path:
 	sys.path.insert(0, TEST_DIR)
 
 import HW1 as hw
+import io
+import contextlib
 
 
 class TestHW1(unittest.TestCase):
@@ -22,6 +24,17 @@ class TestHW1(unittest.TestCase):
 	def test_padding_char_constant(self):
 		# ensure padding character was changed to '$'
 		self.assertEqual(hw.PAD_CHAR, '$', 'PAD_CHAR should be set to $')
+
+	def test_print_title_centers(self):
+		# Verify the helper prints a centered title surrounded by separators
+		buf = io.StringIO()
+		with contextlib.redirect_stdout(buf):
+			hw._print_title('TEST', width=50, sep_char='=')
+		out_lines = buf.getvalue().splitlines()
+		self.assertEqual(out_lines[0], '=' * 50)
+		self.assertEqual(len(out_lines[1]), 50)
+		self.assertEqual(out_lines[1].strip(), 'TEST')
+		self.assertEqual(out_lines[2], '=' * 50)
 
 	def test_is_key_valid_accepts_valid_key(self):
 		self.assertTrue(hw.is_key_valid(self.encryption_key, self.N),
