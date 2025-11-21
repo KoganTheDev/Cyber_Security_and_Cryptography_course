@@ -447,8 +447,8 @@ def main():
 
 
     # Encryption keys
-    first_encryption_key = [[17, 14], [0, 3]]
-    second_encryption_key = [[5, 14], [14, 17]]
+    first_encryption_key = [[17, 14], [0, 3]] # Road
+    second_encryption_key = [[3, 14], [14, 17]] # Door
 
     # Validate keys
     if not (is_key_valid(first_encryption_key, N) and is_key_valid(second_encryption_key, N)):
