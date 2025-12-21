@@ -1,4 +1,5 @@
-"""Utility helpers for cryptography exercises.
+"""
+Utility helpers for cryptography exercises.
 
 This module provides small, dependency-free helpers useful when
 implementing or testing symmetric-key, public-key and digital signature
@@ -222,10 +223,64 @@ def safe_random_bits(bits: int) -> int:
 	return secrets.randbits(bits)
 
 
+# Elliptic Curve Cryptography helpers
+def ec_mod_inverse(a: int, m: int) -> int:
+	"""Calculate modular inverse using extended Euclidean algorithm."""
+	def extended_gcd(a, b):
+		if a == 0:
+			return b, 0, 1
+		gcd, x1, y1 = extended_gcd(b % a, a)
+		return gcd, y1 - (b // a) * x1, x1
+	gcd, x, _ = extended_gcd(a % m, m)
+	if gcd != 1:
+		raise ValueError("No modular inverse")
+	return (x % m + m) % m
+
+
+def ec_point_double(point: Tuple[int, int], p: int) -> Tuple[int, int]:
+	"""Double a point on elliptic curve y² = x³ + 7."""
+	x, y = point
+	lam = (3 * x * x * ec_mod_inverse(2 * y, p)) % p
+	x_new = (lam * lam - 2 * x) % p
+	y_new = (lam * (x - x_new) - y) % p
+	return (x_new, y_new)
+
+
+def ec_point_add(p1: Optional[Tuple[int, int]], p2: Optional[Tuple[int, int]], p: int) -> Optional[Tuple[int, int]]:
+	"""Add two points on elliptic curve."""
+	if p1 is None:
+		return p2
+	if p2 is None:
+		return p1
+	x1, y1 = p1
+	x2, y2 = p2
+	if x1 == x2:
+		return ec_point_double(p1, p) if y1 == y2 else None
+	lam = ((y2 - y1) * ec_mod_inverse(x2 - x1, p)) % p
+	x_new = (lam * lam - x1 - x2) % p
+	y_new = (lam * (x1 - x_new) - y1) % p
+	return (x_new, y_new)
+
+
+def ec_scalar_mult(k: int, point: Tuple[int, int], p: int) -> Optional[Tuple[int, int]]:
+	"""Scalar multiplication on elliptic curve using binary method."""
+	if k == 0:
+		return None
+	result = None
+	addend = point
+	while k:
+		if k & 1:
+			result = ec_point_add(result, addend, p)
+		addend = ec_point_double(addend, p)
+		k >>= 1
+	return result
+
+
 __all__ = [
 	'_print_separator', '_print_label_value', 'chunk_list', 'pad_text_to_block',
 	'String_to_int', 'int_to_string', 'matrix_multiply', 'print_2x2_matrix',
 	'egcd', 'modinv', 'inverse_2x2_matrix', 'is_prime', 'int_to_bytes',
-	'bytes_to_int', 'to_hex', 'from_hex', 'safe_random_bits', 'PAD_CHAR', 'PAD_NUM'
+	'bytes_to_int', 'to_hex', 'from_hex', 'safe_random_bits', 'PAD_CHAR', 'PAD_NUM',
+	'ec_mod_inverse', 'ec_point_double', 'ec_point_add', 'ec_scalar_mult'
 ]
 
