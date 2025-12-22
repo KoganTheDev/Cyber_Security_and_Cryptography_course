@@ -1,6 +1,6 @@
 
-from utils import utils
-import secrets
+from src.utils.utils import ec_scalar_mult, ec_point_add
+import os
 
 # --- Constants (secp256k1) ---
 P = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEFFFFFC2F
@@ -48,18 +48,18 @@ def decode_point_as_plaintext(point):
 
 def generate_keys():
     """Generate ElGamal key pair (private_key, public_key)."""
-    private_key = 1 + secrets.randbelow(N - 1)
-    public_key = utils.ec_scalar_mult(private_key, G, A, P)
+    private_key = 1 + os.urandom(31)[0]  # Use os.urandom instead of secrets.randbelow
+    public_key = ec_scalar_mult(private_key, G, A, P)
     return private_key, public_key
 
 def encrypt(public_key, message_text):
     """Encrypt message using ElGamal encryption. Returns (C1, C2)."""
     M = encode_plaintext_as_point(message_text)
-    k = 1 + secrets.randbelow(N - 1)
+    k = 1 + os.urandom(31)[0]
     
-    C1 = utils.ec_scalar_mult(k, G, A, P)
-    S = utils.ec_scalar_mult(k, public_key, A, P)
-    C2 = utils.ec_point_add(M, S, A, P)
+    C1 = ec_scalar_mult(k, G, A, P)
+    S = ec_scalar_mult(k, public_key, A, P)
+    C2 = ec_point_add(M, S, A, P)
 
     return (C1, C2)
 
@@ -67,9 +67,9 @@ def decrypt(private_key, ciphertext):
     """Decrypt ElGamal ciphertext. Returns original message bytes."""
     C1, C2 = ciphertext
     
-    S = utils.ec_scalar_mult(private_key, C1, A, P)
+    S = ec_scalar_mult(private_key, C1, A, P)
     neg_S = (S[0], (P - S[1]) % P)
-    M = utils.ec_point_add(C2, neg_S, A, P)
+    M = ec_point_add(C2, neg_S, A, P)
     
     return decode_point_as_plaintext(M)
 #El gamal Example
